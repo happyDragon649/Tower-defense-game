@@ -1,33 +1,155 @@
 import pygame
 import sys
+import math
 
 pygame.init()
 
-#this is a tower defense game, only some very basic base code so far
+#this is designed to be similar to tower defense game, where you have to defend your tower from enemies and stuff
+#not finished yet
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("My Tower Defense Game")
 
+pygame.font.init()
+FONT = pygame.font.SysFont("Arial", 24)
+
 FPS = 60
 clock = pygame.time.Clock()
 GREEN = (3, 139, 34) #grass background
 GRAY = (128, 128, 128) #enemy path
+RED = (255, 0, 0) #enemy color
+WHITE = (255, 255, 255) #text color
+BLUE = (0, 0, 255) #tower color
+YELLOW = (255, 255, 0) #bullet thingy color
 
 PATH = [(0, 300), (300, 300), (300, 100), (600, 100), (600, 600)]
 
-#this is the main game loop that runs the game
+player_lives = 10
+spawn_timer = 0
+SPAWN_COOLDOWN = 90
+enemy_speed = 2.0
+enemies = []
+
+towers = []
+TOWER_RADIUS = 20
+TOWER_RANGE = 150
+BULLET_SPEED = 7.0
+FIRE_RATE = 45
+
+projectiles = []
+
+#main game loop
 running = True
 while running:
     clock.tick(FPS)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-    screen.fill(GREEN) #fill background with grass
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1: #left click
+                mouse_pos = pygame.mouse.get_pos()
+                on_path = False
+                for point in PATH:
+                    if abs(mouse_pos[0] - point[0]) < 25 and abs(mouse_pos[1] - point[1]) < 25:
+                        on_path = True
+
+                if not on_path and player_lives > 0:
+                    new_tower = {
+                        "x": mouse_pos[0],
+                        "y": mouse_pos[1],
+                        "cooldown": 0
+                    }
+                    towers.append(new_tower)
+    
+    if player_lives > 0:
+        spawn_timer += 1
+        if spawn_timer >= SPAWN_COOLDOWN:
+            #add a new enemy at start of path
+            new_enemy = {
+                "x": float(PATH[0][0]),
+                "y": float(PATH[0][1]),
+                "target_index": 1
+            }
+            enemies.append(new_enemy)
+            spawn_timer = 0
+
+    for i in range(len(enemies) -1, -1, -1): #loop backwards to remove enemies
+        enemy = enemies[i]
+
+        if enemy["target_index"] < len(PATH):
+            target_x, target_y = PATH[enemy["target_index"]]
+
+            dx = target_x - enemy["x"]
+            dy = target_y - enemy["y"]
+            distance = math.sqrt(dx ** 2 + dy ** 2)
+
+            if distance <= enemy_speed:
+                enemy["x"] = float(target_x)
+                enemy["y"] = float(target_y)
+                enemy["target_index"] += 1
+            else:
+                enemy["x"] += (dx / distance) * enemy_speed
+                enemy["y"] += (dy / distance) * enemy_speed
+        else:
+            enemies.pop(i)
+            player_lives -= 1
+
+    if player_lives > 0:
+        for tower in towers:
+            if tower["cooldown"] > 0:
+                tower["cooldown"] -= 1
+
+            if tower["cooldown"] == 0:
+                for enemy in enemies:
+                    dx = enemy["x"] - tower["x"]
+                    dy = enemy["y"] - tower["y"]
+                    distance = math.sqrt(dx ** 2 + dy ** 2)
+
+                    if distance <= TOWER_RANGE:
+                        bullet_dx = (dx / distance) * BULLET_SPEED
+                        bullet_dy = (dy / distance) * BULLET_SPEED
+                        new_bullet = {
+                            "x": float(tower["x"]),
+                            "y": float(tower["y"]),
+                            "dx": bullet_dx,
+                            "dy": bullet_dy
+                        }
+                        bullets.append(new_bullet)
+                        tower["cooldown"] = FIRE_RATE
+                        break
+
+        for i in range(len(bullets) -1, -1, -1):
+            b = bullets[i]
+            b["x"] += b["dx"]
+            b["y"] += b["dy"]
+
+            if b["x"] < 0 or b["x"] > SCREEN_WIDTH or b["y"] < 0 or b["y"] > SCREEN_HEIGHT:
+                bullets.pop(i)
+
+    screen.fill(GREEN)
+
     if len(PATH) > 1:
-        pygame.draw.lines(screen, GRAY, False, PATH, width = 40) #drawing the enemy path
+        pygame.draw.lines(screen, GRAY, False, PATH, width = 40)
+
+    for tower in towers:
+        pygame.draw.circle(screen, BLUE, (tower["x"], tower["y"]), TOWER_RADIUS)
+
+    for b in bullets:
+        pygame.draw.circle(screen, YELLOW, (int(b["x"]), int(b["y"])), 4)
+
+    for enemy in enemies:
+        pygame.draw.circle(screen, RED, (int(enemy["x"]), int(enemy["y"])), 15) #draw all alive enemies
+
+    if player_lives > 0:
+        lives_text = FONT.render(f"Lives: {player_lives}", True, WHITE)
+        screen.blit(lives_text, (20, 20))
+    else:
+        game_over_text = FONT. render("Game Over", True, WHITE)
+        screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 12))
+
     pygame.display.flip()
 
-pygame.quit() #closing the program
+pygame.quit()
 sys.exit()
