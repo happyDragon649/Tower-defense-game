@@ -3,6 +3,8 @@ import sys
 
 pygame.init()
 
+#this is a tower defense game, only some very basic base code so far
+
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -15,7 +17,7 @@ GRAY = (128, 128, 128) #enemy path
 
 PATH = [(0, 300), (300, 300), (300, 100), (600, 100), (600, 600)]
 
-#main game loop
+#this is the main game loop that runs the game
 running = True
 while running:
     clock.tick(FPS)
@@ -24,8 +26,8 @@ while running:
             running = False
     screen.fill(GREEN) #fill background with grass
     if len(PATH) > 1:
-        pygame.draw.lines(screen, GRAY, False, PATH, width = 40)
+        pygame.draw.lines(screen, GRAY, False, PATH, width = 40) #drawing the enemy path
     pygame.display.flip()
 
-pygame.quit()
+pygame.quit() #closing the program
 sys.exit()
