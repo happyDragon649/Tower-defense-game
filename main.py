@@ -22,7 +22,7 @@ GRAY = (128, 128, 128) #enemy path
 RED = (255, 0, 0) #enemy color
 WHITE = (255, 255, 255) #text color
 BLUE = (0, 0, 255) #tower color
-YELLOW = (255, 255, 0) #bullet thingy color
+YELLOW = (255, 255, 0) #bullet thingy color i think its called like a projecticle or something but too hard to spell don't judge
 
 PATH = [(0, 300), (300, 300), (300, 100), (600, 100), (600, 600)]
 
@@ -38,7 +38,7 @@ TOWER_RANGE = 150
 BULLET_SPEED = 7.0
 FIRE_RATE = 45
 
-projectiles = []
+bullets = []
 
 #main game loop
 running = True
