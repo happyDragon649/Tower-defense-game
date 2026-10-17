@@ -97,6 +97,7 @@ while running:
 
             #add a new enemy at start of path
             new_enemy = {
+                "id": random.getrandbits(32),
                 "x": float(PATH[0][0]),
                 "y": float(PATH[0][1]),
                 "target_index": 1,
@@ -144,13 +145,10 @@ while running:
                     distance = math.sqrt(dx ** 2 + dy ** 2)
 
                     if distance <= TOWER_RANGE:
-                        bullet_dx = (dx / distance) * BULLET_SPEED
-                        bullet_dy = (dy / distance) * BULLET_SPEED
                         new_bullet = {
                             "x": float(tower["x"]),
                             "y": float(tower["y"]),
-                            "dx": bullet_dx,
-                            "dy": bullet_dy
+                            "target_id": enemy["id"]
                         }
                         bullets.append(new_bullet)
                         tower["cooldown"] = FIRE_RATE
@@ -158,35 +156,36 @@ while running:
 
         for i in range(len(bullets) -1, -1, -1):
             b = bullets[i]
-            b["x"] += b["dx"]
-            b["y"] += b["dy"]
 
-            if b["x"] < 0 or b["x"] > SCREEN_WIDTH or b["y"] < 0 or b["y"] > SCREEN_HEIGHT:
-                bullets.pop(i)
-
-        for b_idx in range(len(bullets) -1, -1, -1):
-            b = bullets[b_idx]
-            bullet_destroyed = False
-
-            for e_idx in range(len(enemies) -1, -1, -1):
-                enemy = enemies[e_idx]
-
-                dist_x = b["x"] - enemy["x"]
-                dist_y = b["y"] - enemy["y"]
-                hit_distance = math.sqrt(dist_x ** 2 + dist_y ** 2)
-
-                if hit_distance <= (enemy["radius"] + 4):
-                    enemy["hp"] -= 1
-                    bullet_destroyed = True
-                    bullets.pop(b_idx)
-                    
-                    if enemy["hp"] <= 0:
-                        enemies.pop(e_idx)
-                        player_gold += GOLD_PER_KILL
+            target_enemy = None
+            for enemy in enemies:
+                if enemy["id"] == b["target_id"]:
+                    target_enemy = enemy
                     break
 
-            if bullet_destroyed:
+            if target_enemy is None:
+                bullets.pop(i)
                 continue
+
+            bdx = target_enemy["x"] - b["x"]
+            bdy = target_enemy["y"] - b["y"]
+            b_dist = math.sqrt(bdx ** 2 + bdy ** 2)
+
+            if b_dist <= BULLET_SPEED:
+                bullets.pop(i)
+                target_enemy["hp"] -= 1
+
+                if target_enemy["hp"] <= 0:
+                    if target_enemy in enemies:
+                        enemies.remove(target_enemy)
+                        player_gold += GOLD_PER_KILL
+            else:
+                b["x"] += (bdx / b_dist) * BULLET_SPEED
+                b["y"] += (bdy/ b_dist) * BULLET_SPEED
+
+            if b["x"] < 0 or b["x"] > SCREEN_WIDTH or b["y"] < 0 or b["y"] > SCREEN_HEIGHT:
+                if i < len(bullets):
+                    bullets.pop(i)
 
     screen.fill(GREEN)
 
