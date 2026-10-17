@@ -1,6 +1,7 @@
 import pygame
 import sys
 import math
+import random
 
 pygame.init()
 
@@ -23,6 +24,10 @@ RED = (255, 0, 0) #enemy color
 WHITE = (255, 255, 255) #text color
 BLUE = (0, 0, 255) #tower color
 YELLOW = (255, 255, 0) #bullet thingy color i think its called like a projecticle or something but too hard to spell don't judge
+
+COLOR_NORMAL = (255, 0, 0) #red
+COLOR_FAST = (255, 105, 180) #pink (fast)
+COLOR_TANK = (139, 0, 0) #dark red (mega hard to kill and high damage to you but slow)
 
 PATH = [(0, 300), (300, 300), (300, 100), (600, 100), (600, 600)]
 
@@ -70,12 +75,36 @@ while running:
     if player_lives > 0:
         spawn_timer += 1
         if spawn_timer >= SPAWN_COOLDOWN:
+            rand_choice = random.random()
+            if rand_choice < 0.60: #normal enemy
+                e_hp = 3
+                e_speed = 2.0
+                e_damage = 1
+                e_color = COLOR_NORMAL
+                e_radius = 15
+            elif rand_choice < 0.80: #fast enemy
+                e_hp = 3
+                e_speed = 4.5
+                e_damage = 1
+                e_color = COLOR_FAST
+                e_radius = 12
+            else: #tank enemy
+                e_hp = 15
+                e_speed = 0.7
+                e_damage = 3
+                e_color = COLOR_TANK
+                e_radius = 24
+
             #add a new enemy at start of path
             new_enemy = {
                 "x": float(PATH[0][0]),
                 "y": float(PATH[0][1]),
                 "target_index": 1,
-                "hp": ENEMY_START_HP
+                "hp": e_hp,
+                "speed": e_speed,
+                "damage": e_damage,
+                "color": e_color,
+                "radius": e_radius
             }
             enemies.append(new_enemy)
             spawn_timer = 0
@@ -90,16 +119,18 @@ while running:
             dy = target_y - enemy["y"]
             distance = math.sqrt(dx ** 2 + dy ** 2)
 
-            if distance <= enemy_speed:
+            if distance <= enemy["speed"]:
                 enemy["x"] = float(target_x)
                 enemy["y"] = float(target_y)
                 enemy["target_index"] += 1
             else:
-                enemy["x"] += (dx / distance) * enemy_speed
-                enemy["y"] += (dy / distance) * enemy_speed
+                enemy["x"] += (dx / distance) * enemy["speed"]
+                enemy["y"] += (dy / distance) * enemy["speed"]
         else:
             enemies.pop(i)
-            player_lives -= 1
+            player_lives -= enemy["damage"]
+            if player_lives < 0:
+                player_lives = 0
 
     if player_lives > 0:
         for tower in towers:
@@ -136,16 +167,19 @@ while running:
         for b_idx in range(len(bullets) -1, -1, -1):
             b = bullets[b_idx]
             bullet_destroyed = False
+
             for e_idx in range(len(enemies) -1, -1, -1):
                 enemy = enemies[e_idx]
+
                 dist_x = b["x"] - enemy["x"]
                 dist_y = b["y"] - enemy["y"]
                 hit_distance = math.sqrt(dist_x ** 2 + dist_y ** 2)
 
-                if hit_distance <= 19:
+                if hit_distance <= (enemy["radius"] + 4):
                     enemy["hp"] -= 1
                     bullet_destroyed = True
                     bullets.pop(b_idx)
+                    
                     if enemy["hp"] <= 0:
                         enemies.pop(e_idx)
                         player_gold += GOLD_PER_KILL
@@ -166,7 +200,7 @@ while running:
         pygame.draw.circle(screen, YELLOW, (int(b["x"]), int(b["y"])), 4)
 
     for enemy in enemies:
-        pygame.draw.circle(screen, RED, (int(enemy["x"]), int(enemy["y"])), 15)
+        pygame.draw.circle(screen, enemy["color"], (int(enemy["x"]), int(enemy["y"])), enemy["radius"])
 
     if player_lives > 0:
         lives_text = FONT.render(f"Lives: {player_lives}", True, WHITE)
