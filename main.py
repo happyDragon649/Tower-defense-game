@@ -37,10 +37,13 @@ TOWER_RADIUS = 20
 TOWER_RANGE = 150
 BULLET_SPEED = 7.0
 FIRE_RATE = 45
-
 bullets = []
 
-#main game loop
+player_gold = 150
+TOWER_COST = 50
+ENEMY_START_HP = 3
+GOLD_PER_KILL = 15
+
 running = True
 while running:
     clock.tick(FPS)
@@ -55,13 +58,14 @@ while running:
                     if abs(mouse_pos[0] - point[0]) < 25 and abs(mouse_pos[1] - point[1]) < 25:
                         on_path = True
 
-                if not on_path and player_lives > 0:
+                if not on_path and player_lives > 0 and player_gold >= TOWER_COST:
                     new_tower = {
                         "x": mouse_pos[0],
                         "y": mouse_pos[1],
                         "cooldown": 0
                     }
                     towers.append(new_tower)
+                    player_gold -= TOWER_COST
     
     if player_lives > 0:
         spawn_timer += 1
@@ -70,7 +74,8 @@ while running:
             new_enemy = {
                 "x": float(PATH[0][0]),
                 "y": float(PATH[0][1]),
-                "target_index": 1
+                "target_index": 1,
+                "hp": ENEMY_START_HP
             }
             enemies.append(new_enemy)
             spawn_timer = 0
@@ -128,6 +133,27 @@ while running:
             if b["x"] < 0 or b["x"] > SCREEN_WIDTH or b["y"] < 0 or b["y"] > SCREEN_HEIGHT:
                 bullets.pop(i)
 
+        for b_idx in range(len(bullets) -1, -1, -1):
+            b = bullets[b_idx]
+            bullet_destroyed = False
+            for e_idx in range(len(enemies) -1, -1, -1):
+                enemy = enemies[e_idx]
+                dist_x = b["x"] - enemy["x"]
+                dist_y = b["y"] - enemy["y"]
+                hit_distance = math.sqrt(dist_x ** 2 + dist_y ** 2)
+
+                if hit_distance <= 19:
+                    enemy["hp"] -= 1
+                    bullet_destroyed = True
+                    bullets.pop(b_idx)
+                    if enemy["hp"] <= 0:
+                        enemies.pop(e_idx)
+                        player_gold += GOLD_PER_KILL
+                    break
+
+            if bullet_destroyed:
+                continue
+
     screen.fill(GREEN)
 
     if len(PATH) > 1:
@@ -140,11 +166,14 @@ while running:
         pygame.draw.circle(screen, YELLOW, (int(b["x"]), int(b["y"])), 4)
 
     for enemy in enemies:
-        pygame.draw.circle(screen, RED, (int(enemy["x"]), int(enemy["y"])), 15) #draw all alive enemies
+        pygame.draw.circle(screen, RED, (int(enemy["x"]), int(enemy["y"])), 15)
 
     if player_lives > 0:
         lives_text = FONT.render(f"Lives: {player_lives}", True, WHITE)
         screen.blit(lives_text, (20, 20))
+
+        gold_text = FONT.render(f"Gold: {player_gold}", True, YELLOW)
+        screen.blit(gold_text, (20, 50))
     else:
         game_over_text = FONT. render("Game Over", True, WHITE)
         screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 12))
