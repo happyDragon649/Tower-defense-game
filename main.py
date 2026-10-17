@@ -15,6 +15,7 @@ pygame.display.set_caption("My Tower Defense Game")
 
 pygame.font.init()
 FONT = pygame.font.SysFont("Arial", 24)
+LARGE_FONT = pygame.font.SysFont("Arial", 48) #wave alerts
 
 FPS = 60
 clock = pygame.time.Clock()
@@ -49,6 +50,15 @@ TOWER_COST = 50
 ENEMY_START_HP = 3
 GOLD_PER_KILL = 15
 
+current_wave = 1
+enemies_spawned_this_wave = 0
+enemies_to_spawn_this_wave = 5
+wave_break_timer = 0
+in_wave_break = False
+
+spawn_timer = 0
+base_spawn_cooldown = 90 #will decrease every wave
+
 running = True
 while running:
     clock.tick(FPS)
@@ -73,42 +83,60 @@ while running:
                     player_gold -= TOWER_COST
     
     if player_lives > 0:
-        spawn_timer += 1
-        if spawn_timer >= SPAWN_COOLDOWN:
-            rand_choice = random.random()
-            if rand_choice < 0.60: #normal enemy
-                e_hp = 3
-                e_speed = 2.0
-                e_damage = 1
-                e_color = COLOR_NORMAL
-                e_radius = 15
-            elif rand_choice < 0.80: #fast enemy
-                e_hp = 3
-                e_speed = 4.5
-                e_damage = 1
-                e_color = COLOR_FAST
-                e_radius = 12
-            else: #tank enemy
-                e_hp = 15
-                e_speed = 0.7
-                e_damage = 3
-                e_color = COLOR_TANK
-                e_radius = 24
+        if in_wave_break:
+            wave_break_timer += 1
+            if wave_break_timer >= 180:
+                in_wave_break = False
+                wave_break_timer = 0
+                enemies_spawned_this_wave = 0
+                enemies_to_spawn_this_wave = int(enemies_to_spawn_this_wave * 1.4) + 2
+                base_spawn_cooldown = max(30, base_spawn_cooldown - 8)
 
-            #add a new enemy at start of path
-            new_enemy = {
-                "id": random.getrandbits(32),
-                "x": float(PATH[0][0]),
-                "y": float(PATH[0][1]),
-                "target_index": 1,
-                "hp": e_hp,
-                "speed": e_speed,
-                "damage": e_damage,
-                "color": e_color,
-                "radius": e_radius
-            }
-            enemies.append(new_enemy)
-            spawn_timer = 0
+        elif enemies_spawned_this_wave < enemies_to_spawn_this_wave:
+            spawn_timer += 1
+            if spawn_timer >= base_spawn_cooldown:
+                rand_choice = random.random()
+
+                hp_multiplier = 1.0 + (current_wave - 1) * 0.25
+                speed_multiplier = 1.0 + (current_wave - 1) * 0.08
+
+                if rand_choice < 0.60: #normal enemy
+                    e_hp = int(3 * hp_multiplier)
+                    e_speed = 2.0 * speed_multiplier
+                    e_damage = 1
+                    e_color = COLOR_NORMAL
+                    e_radius = 15
+                elif rand_choice < 0.80: #fast enemy
+                    e_hp = int(3 * hp_multiplier)
+                    e_speed = 4.5 * speed_multiplier
+                    e_damage = 1
+                    e_color = COLOR_FAST
+                    e_radius = 12
+                else: #tank enemy
+                    e_hp = int(15 * hp_multiplier)
+                    e_speed = 0.7 * speed_multiplier
+                    e_damage = 3
+                    e_color = COLOR_TANK
+                    e_radius = 24
+
+                #add a new enemy at start of path
+                new_enemy = {
+                    "id": random.getrandbits(32),
+                    "x": float(PATH[0][0]),
+                    "y": float(PATH[0][1]),
+                    "target_index": 1,
+                    "hp": e_hp,
+                    "speed": e_speed,
+                    "damage": e_damage,
+                    "color": e_color,
+                    "radius": e_radius
+                }
+                enemies.append(new_enemy)
+                spawn_timer = 0
+
+        elif len(enemies) == 0:
+            current_wave += 1
+            in_wave_break = True
 
     for i in range(len(enemies) -1, -1, -1): #loop backwards to remove enemies
         enemy = enemies[i]
@@ -133,59 +161,58 @@ while running:
             if player_lives < 0:
                 player_lives = 0
 
-    if player_lives > 0:
-        for tower in towers:
-            if tower["cooldown"] > 0:
-                tower["cooldown"] -= 1
+    for tower in towers:
+        if tower["cooldown"] > 0:
+            tower["cooldown"] -= 1
 
-            if tower["cooldown"] == 0:
-                for enemy in enemies:
-                    dx = enemy["x"] - tower["x"]
-                    dy = enemy["y"] - tower["y"]
-                    distance = math.sqrt(dx ** 2 + dy ** 2)
-
-                    if distance <= TOWER_RANGE:
-                        new_bullet = {
-                            "x": float(tower["x"]),
-                            "y": float(tower["y"]),
-                            "target_id": enemy["id"]
-                        }
-                        bullets.append(new_bullet)
-                        tower["cooldown"] = FIRE_RATE
-                        break
-
-        for i in range(len(bullets) -1, -1, -1):
-            b = bullets[i]
-
-            target_enemy = None
+        if tower["cooldown"] == 0:
             for enemy in enemies:
-                if enemy["id"] == b["target_id"]:
-                    target_enemy = enemy
+                dx = enemy["x"] - tower["x"]
+                dy = enemy["y"] - tower["y"]
+                distance = math.sqrt(dx ** 2 + dy ** 2)
+
+                if distance <= TOWER_RANGE:
+                    new_bullet = {
+                        "x": float(tower["x"]),
+                        "y": float(tower["y"]),
+                        "target_id": enemy["id"]
+                    }
+                    bullets.append(new_bullet)
+                    tower["cooldown"] = FIRE_RATE
                     break
 
-            if target_enemy is None:
+    for i in range(len(bullets) -1, -1, -1):
+        b = bullets[i]
+
+        target_enemy = None
+        for enemy in enemies:
+            if enemy["id"] == b["target_id"]:
+                target_enemy = enemy
+                break
+
+        if target_enemy is None:
+            bullets.pop(i)
+            continue
+
+        bdx = target_enemy["x"] - b["x"]
+        bdy = target_enemy["y"] - b["y"]
+        b_dist = math.sqrt(bdx ** 2 + bdy ** 2)
+
+        if b_dist <= BULLET_SPEED:
+            bullets.pop(i)
+            target_enemy["hp"] -= 1
+
+            if target_enemy["hp"] <= 0:
+                if target_enemy in enemies:
+                    enemies.remove(target_enemy)
+                    player_gold += GOLD_PER_KILL
+        else:
+            b["x"] += (bdx / b_dist) * BULLET_SPEED
+            b["y"] += (bdy/ b_dist) * BULLET_SPEED
+
+        if b["x"] < 0 or b["x"] > SCREEN_WIDTH or b["y"] < 0 or b["y"] > SCREEN_HEIGHT:
+            if i < len(bullets):
                 bullets.pop(i)
-                continue
-
-            bdx = target_enemy["x"] - b["x"]
-            bdy = target_enemy["y"] - b["y"]
-            b_dist = math.sqrt(bdx ** 2 + bdy ** 2)
-
-            if b_dist <= BULLET_SPEED:
-                bullets.pop(i)
-                target_enemy["hp"] -= 1
-
-                if target_enemy["hp"] <= 0:
-                    if target_enemy in enemies:
-                        enemies.remove(target_enemy)
-                        player_gold += GOLD_PER_KILL
-            else:
-                b["x"] += (bdx / b_dist) * BULLET_SPEED
-                b["y"] += (bdy/ b_dist) * BULLET_SPEED
-
-            if b["x"] < 0 or b["x"] > SCREEN_WIDTH or b["y"] < 0 or b["y"] > SCREEN_HEIGHT:
-                if i < len(bullets):
-                    bullets.pop(i)
 
     screen.fill(GREEN)
 
@@ -207,6 +234,12 @@ while running:
 
         gold_text = FONT.render(f"Gold: {player_gold}", True, YELLOW)
         screen.blit(gold_text, (20, 50))
+
+        wave_num_text = LARGE_FONT.render(f"Wave: {current_wave} APPROACHING...", True, WHITE)
+        screen.blit(wave_num_text, (SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 - 50))
+
+        if in_wave_break:
+            wave_break_text = LARGE_FONT.render("Wave Break", True, WHITE)
     else:
         game_over_text = FONT. render("Game Over", True, WHITE)
         screen.blit(game_over_text, (SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 12))
