@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tower Defense Game</title>
+    <!-- Load the official Pyodide engine for browser Python execution -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #status {
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #ffb703;
+        }
+        #canvas-container {
+            border: 4px solid #444;
+            background-color: black;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status">Loading Python Game Engine (Please Wait)...</div>
+    <div id="canvas-container">
+        <!-- Pygame will automatically inject its visual window right here -->
+        <canvas id="canvas" width="800" height="600"></canvas>
+    </div>
+
+    <script type="text/javascript">
+        async function runGame() {
+            const statusElement = document.getElementById("status");
+            
+            // Step 1: Initialize the browser-side Python compiler
+            let pyodide = await loadPyodide();
+            statusElement.innerText = "Installing Pygame modules...";
+            
+            // Step 2: Dynamically fetch and unpack the browser-ready Pygame package
+            await pyodide.loadPackage(["pygame-ce", "micropip"]);
+            statusElement.innerText = "Booting up Tower Defense script...";
+
+            // Step 3: Read your exact local main.py file and execute it inside the sandbox
+            try {
+                const response = await fetch('main.py');
+                const pythonCode = await response.text();
+                
+                // Point Pygame's window target to our HTML canvas
+                window.canvas = document.getElementById("canvas");
+                
+                await pyodide.runPythonAsync(pythonCode);
+                statusElement.innerText = "Game Running!";
+            } catch (err) {
+                statusElement.innerText = "Error launching game. Check console.";
+                console.error(err);
+            }
+        }
+        runGame();
+    </script>
+</body>
+</html>
